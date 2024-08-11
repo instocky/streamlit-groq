@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from datetime import datetime
 
 import streamlit as st
@@ -12,8 +13,16 @@ def generate_filename():
 def write_to_file(filename, content):
     os.makedirs("chats", exist_ok=True)
     file_path = os.path.join("chats", filename)
+    
+    # Удаляем блок Usage Info из контента перед записью
+    content_lines = content.split("\n")
+    clean_content = "\n".join([line for line in content_lines if not line.startswith("**Usage Info:**")])
+    
+    # Удаляем JSON блок
+    clean_content = re.sub(r'```json\n.*?```', '', clean_content, flags=re.DOTALL)
+    
     with open(file_path, "a", encoding="utf-8") as f:
-        f.write(content + "\n\n")
+        f.write(clean_content.strip() + "\n\n")
 
 # streamlit page configuration
 st.set_page_config(
@@ -65,9 +74,9 @@ if user_prompt:
     st.session_state.chat_history.append({"role": "user", "content": user_prompt})
     write_to_file(st.session_state.current_chat_file, f"**User:** {user_prompt}")
 
-    # send user's message to the LLM and get a response
+    # Отправляем сообщение пользователя в LLM и получаем ответ
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},  # Используем системный промпт из config.json
+        {"role": "system", "content": SYSTEM_PROMPT},
         *st.session_state.chat_history
     ]
 
@@ -77,9 +86,6 @@ if user_prompt:
     )
 
     assistant_response = response.choices[0].message.content
-    st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
-    write_to_file(st.session_state.current_chat_file, f"**Assistant:** {assistant_response}")
-
     usage_info = response.usage
     
     # Обновляем суммарные значения
@@ -94,7 +100,10 @@ if user_prompt:
     # Добавляем информацию о токенах к ответу ассистента
     full_response = f"{assistant_response}\n\n---\n{current_tokens_info}\n{total_tokens_info}"
 
+    # Добавляем только один раз в историю чата
     st.session_state.chat_history.append({"role": "assistant", "content": full_response})
+    
+    # Записываем в файл
     write_to_file(st.session_state.current_chat_file, f"**Assistant:** {full_response}")
 
     # Отображаем ответ ассистента
@@ -112,4 +121,3 @@ if user_prompt:
             "total_time": round(usage_info.total_time, 3)
         }
         st.json(usage_data)
-        write_to_file(st.session_state.current_chat_file, f"**Usage Info:**\n```json\n{json.dumps(usage_data, indent=2)}\n```")
