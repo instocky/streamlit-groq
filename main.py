@@ -55,6 +55,19 @@ if user_prompt:
     assistant_response = response.choices[0].message.content
     st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
 
-    # display the LLM's response
+    usage_info = response.usage
+
+    # Отображаем ответ ассистента
     with st.chat_message("assistant"):
         st.markdown(assistant_response)
+
+    # Отображаем информацию об использовании в отдельном блоке
+    with st.expander("Информация об использовании"):
+        st.json({
+            "prompt_tokens": usage_info.prompt_tokens,
+            "completion_tokens": usage_info.completion_tokens,
+            "total_tokens": usage_info.total_tokens,
+            "prompt_time": round(usage_info.prompt_time, 3),
+            "completion_time": round(usage_info.completion_time, 3),
+            "total_time": round(usage_info.total_time, 3)
+            })
