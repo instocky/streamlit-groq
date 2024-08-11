@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 
 import streamlit as st
+from components.floating_chat import floating_chat_button
 from groq import Groq
 
 def sum_daily_tokens():
@@ -150,3 +151,6 @@ if user_prompt:
     # Отображаем суммарную информацию за день
     daily_summary = sum_daily_tokens()
     st.info(daily_summary)
+
+# Добавляем плавающую кнопку чата в конце основного блока
+# floating_chat_button()
