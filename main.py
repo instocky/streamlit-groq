@@ -74,9 +74,18 @@ if user_prompt:
 
     usage_info = response.usage
 
+    # Формируем строку с информацией о токенах
+    token_info = f"\n\n*Потрачено токенов {usage_info.prompt_tokens}:{usage_info.completion_tokens}:{usage_info.total_tokens}*"
+
+    # Добавляем информацию о токенах к ответу ассистента
+    full_response = f"{assistant_response}{token_info}"
+
+    st.session_state.chat_history.append({"role": "assistant", "content": full_response})
+    write_to_file(st.session_state.current_chat_file, f"**Assistant:** {full_response}")
+
     # Отображаем ответ ассистента
     with st.chat_message("assistant"):
-        st.markdown(assistant_response)
+        st.markdown(full_response)
 
     # Отображаем информацию об использовании в отдельном блоке
     with st.expander("Информация об использовании"):
