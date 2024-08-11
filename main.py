@@ -6,6 +6,31 @@ from datetime import datetime
 import streamlit as st
 from groq import Groq
 
+def sum_daily_tokens():
+    today = datetime.now().strftime("%Y-%m-%d")
+    chats_dir = "chats"
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
+    total_total_tokens = 0
+
+    pattern = r'\*Всего в сессии (\d+):(\d+):(\d+)\*'
+
+    for filename in os.listdir(chats_dir):
+        if filename.startswith(today):
+            file_path = os.path.join(chats_dir, filename)
+            with open(file_path, 'r', encoding='utf-8') as file:
+                lines = file.readlines()
+                for line in reversed(lines):
+                    if line.strip():
+                        match = re.search(pattern, line)
+                        if match:
+                            total_prompt_tokens += int(match.group(1))
+                            total_completion_tokens += int(match.group(2))
+                            total_total_tokens += int(match.group(3))
+                        break
+
+    return f"Всего за {today} {total_prompt_tokens}:{total_completion_tokens}:{total_total_tokens}"
+
 def generate_filename():
     now = datetime.now()
     return now.strftime("%Y-%m-%d-%H%M%S.md")
@@ -121,3 +146,7 @@ if user_prompt:
             "total_time": round(usage_info.total_time, 3)
         }
         st.json(usage_data)
+
+    # Отображаем суммарную информацию за день
+    daily_summary = sum_daily_tokens()
+    st.info(daily_summary)
