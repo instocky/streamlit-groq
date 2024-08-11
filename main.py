@@ -41,6 +41,14 @@ if "chat_history" not in st.session_state:
 if "current_chat_file" not in st.session_state:
     st.session_state.current_chat_file = generate_filename()
 
+# Инициализация session totlal tokens 
+if "total_prompt_tokens" not in st.session_state:
+    st.session_state.total_prompt_tokens = 0
+if "total_completion_tokens" not in st.session_state:
+    st.session_state.total_completion_tokens = 0
+if "total_total_tokens" not in st.session_state:
+    st.session_state.total_total_tokens = 0
+
 # streamlit page title
 st.title("🦙 LLAMA 3.1. ChatBot")
 
@@ -73,12 +81,18 @@ if user_prompt:
     write_to_file(st.session_state.current_chat_file, f"**Assistant:** {assistant_response}")
 
     usage_info = response.usage
+    
+    # Обновляем суммарные значения
+    st.session_state.total_prompt_tokens += usage_info.prompt_tokens
+    st.session_state.total_completion_tokens += usage_info.completion_tokens
+    st.session_state.total_total_tokens += usage_info.total_tokens
 
-    # Формируем строку с информацией о токенах
-    token_info = f"\n\n*Потрачено токенов {usage_info.prompt_tokens}:{usage_info.completion_tokens}:{usage_info.total_tokens}*"
+    # Формируем строки с информацией о токенах
+    current_tokens_info = f"*Потрачено токенов {usage_info.prompt_tokens}:{usage_info.completion_tokens}:{usage_info.total_tokens}*"
+    total_tokens_info = f"*Всего в сессии {st.session_state.total_prompt_tokens}:{st.session_state.total_completion_tokens}:{st.session_state.total_total_tokens}*"
 
     # Добавляем информацию о токенах к ответу ассистента
-    full_response = f"{assistant_response}{token_info}"
+    full_response = f"{assistant_response}\n\n---\n{current_tokens_info}\n{total_tokens_info}"
 
     st.session_state.chat_history.append({"role": "assistant", "content": full_response})
     write_to_file(st.session_state.current_chat_file, f"**Assistant:** {full_response}")
