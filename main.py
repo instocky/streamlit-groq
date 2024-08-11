@@ -1,8 +1,19 @@
 import os
 import json
+from datetime import datetime
 
 import streamlit as st
 from groq import Groq
+
+def generate_filename():
+    now = datetime.now()
+    return now.strftime("%Y-%m-%d-%H%M%S.md")
+
+def write_to_file(filename, content):
+    os.makedirs("chats", exist_ok=True)
+    file_path = os.path.join("chats", filename)
+    with open(file_path, "a", encoding="utf-8") as f:
+        f.write(content + "\n\n")
 
 # streamlit page configuration
 st.set_page_config(
@@ -26,6 +37,10 @@ client = Groq()
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# В начале скрипта, после инициализации chat_history
+if "current_chat_file" not in st.session_state:
+    st.session_state.current_chat_file = generate_filename()
+
 # streamlit page title
 st.title("🦙 LLAMA 3.1. ChatBot")
 
@@ -40,6 +55,7 @@ user_prompt = st.chat_input("Ask LLAMA...")
 if user_prompt:
     st.chat_message("user").markdown(user_prompt)
     st.session_state.chat_history.append({"role": "user", "content": user_prompt})
+    write_to_file(st.session_state.current_chat_file, f"**User:** {user_prompt}")
 
     # send user's message to the LLM and get a response
     messages = [
@@ -54,6 +70,7 @@ if user_prompt:
 
     assistant_response = response.choices[0].message.content
     st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
+    write_to_file(st.session_state.current_chat_file, f"**Assistant:** {assistant_response}")
 
     usage_info = response.usage
 
@@ -63,11 +80,13 @@ if user_prompt:
 
     # Отображаем информацию об использовании в отдельном блоке
     with st.expander("Информация об использовании"):
-        st.json({
+        usage_data = {
             "prompt_tokens": usage_info.prompt_tokens,
             "completion_tokens": usage_info.completion_tokens,
             "total_tokens": usage_info.total_tokens,
             "prompt_time": round(usage_info.prompt_time, 3),
             "completion_time": round(usage_info.completion_time, 3),
             "total_time": round(usage_info.total_time, 3)
-            })
+        }
+        st.json(usage_data)
+        write_to_file(st.session_state.current_chat_file, f"**Usage Info:**\n```json\n{json.dumps(usage_data, indent=2)}\n```")
