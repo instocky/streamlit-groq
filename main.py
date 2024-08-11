@@ -29,8 +29,9 @@ def sum_daily_tokens():
                             total_completion_tokens += int(match.group(2))
                             total_total_tokens += int(match.group(3))
                         break
-
-    return f"Всего за {today} {total_prompt_tokens}:{total_completion_tokens}:{total_total_tokens}"
+    result = round((total_total_tokens * 0.79 * 100 / 1000000), 2)
+    return f"Всего токенов за {today}:{total_total_tokens} = ₽{result} [$0.79]" # $0.79/(per 1M Tokens, input/output)
+    # return f"Всего за {today} {total_prompt_tokens}:{total_completion_tokens}:{total_total_tokens}=₽{result} [$0.79]" # $0.79/(per 1M Tokens, input/output)
 
 def generate_filename():
     now = datetime.now()
