@@ -68,8 +68,7 @@ working_dir = os.path.dirname(os.path.abspath(__file__))
 config_data = json.load(open(f"{working_dir}/config.json"))
 
 GROQ_API_KEY = config_data["GROQ_API_KEY"]
-# Добавляем загрузку агентов из config.json
-AGENTS = config_data["AGENTS"]
+SYSTEM_PROMPT = config_data["SYSTEM_PROMPT"]  # Добавляем эту строку
 
 # save the api key to environment variable
 os.environ["GROQ_API_KEY"] = GROQ_API_KEY
