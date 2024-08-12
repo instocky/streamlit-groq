@@ -7,6 +7,16 @@ import streamlit as st
 from components.floating_chat import floating_chat_button
 from groq import Groq
 
+# Добавьте эту новую функцию
+def get_recent_chats():
+    chats_dir = "chats"
+    if not os.path.exists(chats_dir):
+        return []
+    
+    chat_files = [f for f in os.listdir(chats_dir) if f.endswith('.md')]
+    chat_files.sort(key=lambda x: os.path.getmtime(os.path.join(chats_dir, x)), reverse=True)
+    return chat_files[:10]  # Возвращаем только 10 последних чатов
+
 # Обновляем функцию generate_filename для учета имени агента
 def generate_filename():
     now = datetime.now()
@@ -96,94 +106,111 @@ if "total_total_tokens" not in st.session_state:
 # streamlit page title
 st.title("🦙 LLAMA 3.1. ChatBot")
 
-if "selected_agent" not in st.session_state:
-    st.session_state.selected_agent = None
 
-if st.session_state.selected_agent is None:
-    agent_names = [agent["name"] for agent in AGENTS]
-    selected_agent_name = st.selectbox("Выберите AI-агента:", agent_names)
-    selected_agent = next(agent for agent in AGENTS if agent["name"] == selected_agent_name)
-    if st.button("Начать сессию"):
-        st.session_state.selected_agent = selected_agent
-        st.session_state.chat_history = []
-        st.session_state.current_chat_file = generate_filename()
-        st.rerun()
 
-# Отображаем интерфейс чата только если агент выбран
-if st.session_state.selected_agent:
-    st.write(f"Текущий агент: {st.session_state.selected_agent['name']}")
-    
-    # Добавляем кнопку завершения сессии
-    if st.button("Завершить сессию"):
-        st.session_state.selected_agent = None
-        st.session_state.chat_history = []
-        st.session_state.current_chat_file = None
-        st.rerun()
 
-    # Отображение истории чата
-    for message in st.session_state.chat_history:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
 
-    # Поле ввода для сообщения пользователя
-    user_prompt = st.chat_input("Ask LLAMA...")
+# Создаем две колонки
+col1, col2 = st.columns([1, 3])
 
-    if user_prompt:
-        st.chat_message("user").markdown(user_prompt)
-        st.session_state.chat_history.append({"role": "user", "content": user_prompt})
-        write_to_file(st.session_state.current_chat_file, f"**User:** {user_prompt}")
+# В левой колонке отображаем список последних чатов
+with col1:
+    with st.expander("Последние чаты", expanded=False):
+        recent_chats = get_recent_chats()
+        for chat_file in recent_chats:
+            st.write(chat_file)
 
-        # Отправляем сообщение пользователя в LLM и получаем ответ
-        messages = [
-            {"role": "system", "content": st.session_state.selected_agent["system_prompt"]},
-            *st.session_state.chat_history
-        ]
+# В правой колонке отображаем основной интерфейс чата
+with col2:  
+    if "selected_agent" not in st.session_state:
+        st.session_state.selected_agent = None 
+         
+    if st.session_state.selected_agent is None:
+        agent_names = [agent["name"] for agent in AGENTS]
+        selected_agent_name = st.selectbox("Выберите AI-агента:", agent_names)
+        selected_agent = next(agent for agent in AGENTS if agent["name"] == selected_agent_name)
+        if st.button("Начать сессию"):
+            st.session_state.selected_agent = selected_agent
+            st.session_state.chat_history = []
+            st.session_state.current_chat_file = generate_filename()
+            st.rerun()
+    # Отображаем интерфейс чата только если агент выбран
+    if st.session_state.selected_agent:
 
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages
-        )
 
-        assistant_response = response.choices[0].message.content
-        usage_info = response.usage
-        
-        # Обновляем суммарные значения
-        st.session_state.total_prompt_tokens += usage_info.prompt_tokens
-        st.session_state.total_completion_tokens += usage_info.completion_tokens
-        st.session_state.total_total_tokens += usage_info.total_tokens
+            st.write(f"Текущий агент: {st.session_state.selected_agent['name']}")
+            
+            # Добавляем кнопку завершения сессии
+            if st.button("Завершить сессию"):
+                st.session_state.selected_agent = None
+                st.session_state.chat_history = []
+                st.session_state.current_chat_file = None
+                st.rerun()
 
-        # Формируем строки с информацией о токенах
-        current_tokens_info = f"*Потрачено токенов {usage_info.prompt_tokens}:{usage_info.completion_tokens}:{usage_info.total_tokens}*"
-        total_tokens_info = f"*Всего в сессии {st.session_state.total_prompt_tokens}:{st.session_state.total_completion_tokens}:{st.session_state.total_total_tokens}*"
+            # Отображение истории чата
+            for message in st.session_state.chat_history:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
 
-        # Добавляем информацию о токенах к ответу ассистента
-        full_response = f"{assistant_response}\n\n---\n{current_tokens_info}\n{total_tokens_info}"
+            # Поле ввода для сообщения пользователя
+            user_prompt = st.chat_input("Ask LLAMA...")
 
-        # Добавляем только один раз в историю чата
-        st.session_state.chat_history.append({"role": "assistant", "content": full_response})
-        
-        # Записываем в файл
-        write_to_file(st.session_state.current_chat_file, f"**Assistant:** {full_response}")
+            if user_prompt:
+                st.chat_message("user").markdown(user_prompt)
+                st.session_state.chat_history.append({"role": "user", "content": user_prompt})
+                write_to_file(st.session_state.current_chat_file, f"**User:** {user_prompt}")
 
-        # Отображаем ответ ассистента
-        with st.chat_message("assistant"):
-            st.markdown(full_response)
+                # Отправляем сообщение пользователя в LLM и получаем ответ
+                messages = [
+                    {"role": "system", "content": st.session_state.selected_agent["system_prompt"]},
+                    *st.session_state.chat_history
+                ]
 
-        # Отображаем информацию об использовании в отдельном блоке
-        with st.expander("Информация об использовании"):
-            usage_data = {
-                "prompt_tokens": usage_info.prompt_tokens,
-                "completion_tokens": usage_info.completion_tokens,
-                "total_tokens": usage_info.total_tokens,
-                "prompt_time": round(usage_info.prompt_time, 3),
-                "completion_time": round(usage_info.completion_time, 3),
-                "total_time": round(usage_info.total_time, 3)
-            }
-            st.json(usage_data)
+                response = client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=messages
+                )
 
-        # Отображаем суммарную информацию за день
-        daily_summary = sum_daily_tokens()
-        st.info(daily_summary)
+                assistant_response = response.choices[0].message.content
+                usage_info = response.usage
+                
+                # Обновляем суммарные значения
+                st.session_state.total_prompt_tokens += usage_info.prompt_tokens
+                st.session_state.total_completion_tokens += usage_info.completion_tokens
+                st.session_state.total_total_tokens += usage_info.total_tokens
+
+                # Формируем строки с информацией о токенах
+                current_tokens_info = f"*Потрачено токенов {usage_info.prompt_tokens}:{usage_info.completion_tokens}:{usage_info.total_tokens}*"
+                total_tokens_info = f"*Всего в сессии {st.session_state.total_prompt_tokens}:{st.session_state.total_completion_tokens}:{st.session_state.total_total_tokens}*"
+
+                # Добавляем информацию о токенах к ответу ассистента
+                full_response = f"{assistant_response}\n\n---\n{current_tokens_info}\n{total_tokens_info}"
+
+                # Добавляем только один раз в историю чата
+                st.session_state.chat_history.append({"role": "assistant", "content": full_response})
+                
+                # Записываем в файл
+                write_to_file(st.session_state.current_chat_file, f"**Assistant:** {full_response}")
+
+                # Отображаем ответ ассистента
+                with st.chat_message("assistant"):
+                    st.markdown(full_response)
+
+                # Отображаем информацию об использовании в отдельном блоке
+                with st.expander("Информация об использовании"):
+                    usage_data = {
+                        "prompt_tokens": usage_info.prompt_tokens,
+                        "completion_tokens": usage_info.completion_tokens,
+                        "total_tokens": usage_info.total_tokens,
+                        "prompt_time": round(usage_info.prompt_time, 3),
+                        "completion_time": round(usage_info.completion_time, 3),
+                        "total_time": round(usage_info.total_time, 3)
+                    }
+                    st.json(usage_data)
+
+                # Отображаем суммарную информацию за день
+                daily_summary = sum_daily_tokens()
+                st.info(daily_summary)
 
 # Комментируем эту строку, так как плавающая кнопка чата не используется в текущей версии
 # floating_chat_button()
