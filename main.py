@@ -7,6 +7,10 @@ import streamlit as st
 from components.floating_chat import floating_chat_button
 from groq import Groq
 
+from database import Database
+
+db = Database()
+
 # streamlit page configuration
 st.set_page_config(
     page_title="LLAMA 3.1. Chat",
@@ -29,7 +33,9 @@ def get_recent_chats():
 def generate_filename():
     now = datetime.now()
     agent_name = st.session_state.selected_agent["name"].replace(" ", "_")
-    return f"{now.strftime('%Y-%m-%d-%H%M%S')}_{agent_name}.md"
+    filename = f"{now.strftime('%Y-%m-%d-%H%M%S')}_{agent_name}.md"
+    print(f"Returning: {filename}, {now}")  # Отладочный вывод
+    return filename, now
 
 def sum_daily_tokens():
     today = datetime.now().strftime("%Y-%m-%d")
@@ -57,9 +63,6 @@ def sum_daily_tokens():
     return f"Всего токенов за {today}:{total_total_tokens} = ₽{result} [$0.79]" # $0.79/(per 1M Tokens, input/output)
     # return f"Всего за {today} {total_prompt_tokens}:{total_completion_tokens}:{total_total_tokens}=₽{result} [$0.79]" # $0.79/(per 1M Tokens, input/output)
 
-def generate_filename():
-    now = datetime.now()
-    return now.strftime("%Y-%m-%d-%H%M%S.md")
 
 def write_to_file(filename, content):
     os.makedirs("chats", exist_ok=True)
@@ -112,9 +115,17 @@ st.title("🦙 LLAMA 3.1. ChatBot")
 # Отображаем список последних чатов в сайдбаре
 with st.sidebar:
     with st.expander("Последние чаты", expanded=False):
-        recent_chats = get_recent_chats()
-        for chat_file in recent_chats:
-            st.write(chat_file)
+        # recent_chats = get_recent_chats()
+        # for chat_file in recent_chats:
+        #     st.write(chat_file)
+        recent_sessions = db.get_recent_sessions()
+        for session in recent_sessions:
+            filename, create_date, duration, agent_name = session
+            st.write(f"Файл: {filename}")
+            st.write(f"Дата создания: {create_date}")
+            st.write(f"Длительность: {duration} сек.")
+            st.write(f"Агент: {agent_name}")
+            st.write("---")
 
 
 if "selected_agent" not in st.session_state:
@@ -127,7 +138,9 @@ if st.session_state.selected_agent is None:
     if st.button("Начать сессию"):
         st.session_state.selected_agent = selected_agent
         st.session_state.chat_history = []
-        st.session_state.current_chat_file = generate_filename()
+        filename, create_date = generate_filename()
+        st.session_state.current_chat_file = filename
+        db.save_session(filename, create_date.isoformat(), 0, selected_agent["name"])
         st.rerun()
 # Отображаем интерфейс чата только если агент выбран
 if st.session_state.selected_agent:
@@ -137,6 +150,9 @@ if st.session_state.selected_agent:
         
         # Добавляем кнопку завершения сессии
         if st.button("Завершить сессию"):
+            if st.session_state.current_chat_file:
+                end_time = datetime.now()
+                db.end_session(st.session_state.current_chat_file, end_time)
             st.session_state.selected_agent = None
             st.session_state.chat_history = []
             st.session_state.current_chat_file = None
