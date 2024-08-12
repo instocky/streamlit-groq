@@ -78,6 +78,9 @@ def write_to_file(filename, content):
     with open(file_path, "a", encoding="utf-8") as f:
         f.write(clean_content.strip() + "\n\n")
 
+     # Обновляем длительность сессии
+    db.update_session_duration(filename)
+
 
 
 working_dir = os.path.dirname(os.path.abspath(__file__))
@@ -120,7 +123,8 @@ with st.sidebar:
         #     st.write(chat_file)
         recent_sessions = db.get_recent_sessions()
         for session in recent_sessions:
-            filename, create_date, duration, agent_name = session
+            filename, create_date, _, agent_name = session
+            duration = db.get_session_duration(filename)
             st.write(f"Файл: {filename}")
             st.write(f"Дата создания: {create_date}")
             st.write(f"Длительность: {duration} сек.")
